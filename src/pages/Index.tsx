@@ -55,9 +55,9 @@ const Index = () => {
       {/* Hero */}
       <div className="bg-primary text-primary-foreground py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-2">Exam Scorecard Analyzer</h1>
+          <h1 className="text-4xl font-bold mb-2">SSC CGL Mains Scorecard</h1>
           <p className="text-primary-foreground/70 text-lg">
-            Paste your SSC / RRB answer key URL or HTML to get instant section-wise analysis
+            Paste your answer key URL or HTML to get instant section-wise analysis
           </p>
         </div>
       </div>

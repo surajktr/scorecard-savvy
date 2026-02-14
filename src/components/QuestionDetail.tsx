@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { QuestionResult, ScorecardData } from '@/lib/parseSSCHtml';
-import { getQuestionsForSection, getExamSections } from '@/lib/parseSSCHtml';
+import { getQuestionsForSection, CGL_MAINS_SECTIONS } from '@/lib/parseSSCHtml';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 
@@ -8,13 +9,13 @@ interface QuestionDetailProps {
 }
 
 const QuestionDetail = ({ data }: QuestionDetailProps) => {
-  const allSections = getExamSections(data);
+  const allSections = CGL_MAINS_SECTIONS;
 
   return (
     <div className="w-full max-w-4xl mx-auto mt-10">
       <h2 className="text-2xl font-bold text-foreground mb-4">Question-wise Details</h2>
 
-      <Tabs defaultValue={allSections[0]?.part || 'A'} className="w-full">
+      <Tabs defaultValue="A" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 mb-6">
           {allSections.map((sec) => (
             <TabsTrigger key={sec.part} value={sec.part} className="text-xs sm:text-sm">
@@ -32,7 +33,7 @@ const QuestionDetail = ({ data }: QuestionDetailProps) => {
                   {sec.subject} — {questions.length} questions
                 </p>
                 {questions.map((q) => (
-                  <QuestionCard key={q.questionNumber} question={q} />
+                  <QuestionCard key={q.questionNumber} question={q} sectionPart={sec.part} />
                 ))}
               </div>
             </TabsContent>
@@ -43,7 +44,7 @@ const QuestionDetail = ({ data }: QuestionDetailProps) => {
   );
 };
 
-function QuestionCard({ question }: { question: QuestionResult }) {
+function QuestionCard({ question, sectionPart }: { question: QuestionResult; sectionPart: string }) {
   const statusColor = question.isCorrect
     ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20'
     : question.chosenOption
@@ -83,7 +84,7 @@ function QuestionCard({ question }: { question: QuestionResult }) {
         )}
       </div>
 
-      {/* Question Content */}
+      {/* Question Image */}
       {question.questionImageUrl && (
         <div className="mb-3 overflow-x-auto bg-background rounded-lg p-2">
           <img
@@ -93,11 +94,6 @@ function QuestionCard({ question }: { question: QuestionResult }) {
             loading="lazy"
           />
         </div>
-      )}
-      {question.questionText && !question.questionImageUrl && (
-        <p className="mb-3 text-sm text-foreground bg-background rounded-lg p-3">
-          {question.questionText}
-        </p>
       )}
 
       {/* Options */}
@@ -116,20 +112,16 @@ function QuestionCard({ question }: { question: QuestionResult }) {
                 <span className="text-xs font-bold text-muted-foreground mt-1 shrink-0">
                   {opt.optionNumber}.
                 </span>
-                <div className="flex-1 min-w-0">
-                  {opt.imageUrl ? (
-                    <img
-                      src={opt.imageUrl}
-                      alt={`Option ${opt.optionNumber}`}
-                      className="max-w-full h-auto"
-                      loading="lazy"
-                    />
-                  ) : opt.text ? (
-                    <span className="text-sm text-foreground">{opt.text}</span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No content</span>
-                  )}
-                </div>
+                {opt.imageUrl ? (
+                  <img
+                    src={opt.imageUrl}
+                    alt={`Option ${opt.optionNumber}`}
+                    className="max-w-full h-auto"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="text-sm text-muted-foreground">No image</span>
+                )}
                 {opt.isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-1" />}
                 {opt.isChosen && !opt.isCorrect && <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-1" />}
               </div>

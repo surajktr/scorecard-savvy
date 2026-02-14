@@ -1,19 +1,12 @@
 export interface QuestionResult {
   questionNumber: number;
-  sectionQuestionNumber: number;
+  sectionQuestionNumber: number; // Q.number within section (e.g. Q.3)
   status: string;
   chosenOption: number | null;
   isCorrect: boolean;
   correctOption: number | null;
-  questionText: string | null;
   questionImageUrl: string | null;
-  optionImages: {
-    optionNumber: number;
-    imageUrl: string | null;
-    text: string | null;
-    isCorrect: boolean;
-    isChosen: boolean;
-  }[];
+  optionImages: { optionNumber: number; imageUrl: string | null; isCorrect: boolean; isChosen: boolean }[];
 }
 
 export interface SectionResult {
@@ -30,30 +23,12 @@ export interface SectionResult {
 }
 
 export interface CandidateInfo {
-  registrationNumber: string;
   rollNumber: string;
   candidateName: string;
-  community: string;
   venueName: string;
   examDate: string;
   examTime: string;
   subject: string;
-}
-
-export interface ExamConfig {
-  name: string;
-  sections: SectionConfig[];
-}
-
-interface SectionConfig {
-  part: string;
-  subject: string;
-  start: number;
-  end: number;
-  marksPerCorrect: number;
-  negativePerWrong: number;
-  maxMarks: number;
-  qualifying?: boolean;
 }
 
 export interface ScorecardData {
@@ -67,11 +42,10 @@ export interface ScorecardData {
   totalMaxMarks: number;
   qualifyingSection: SectionResult | null;
   baseUrl: string;
-  examConfig: ExamConfig;
 }
 
 // SSC CGL Mains 2024 section structure
-const CGL_MAINS_SECTIONS: SectionConfig[] = [
+const CGL_MAINS_SECTIONS = [
   { part: 'A', subject: 'Mathematical Abilities', start: 1, end: 30, marksPerCorrect: 3, negativePerWrong: 1, maxMarks: 90 },
   { part: 'B', subject: 'Reasoning & General Intelligence', start: 31, end: 60, marksPerCorrect: 3, negativePerWrong: 1, maxMarks: 90 },
   { part: 'C', subject: 'English Language & Comprehension', start: 61, end: 105, marksPerCorrect: 3, negativePerWrong: 1, maxMarks: 135 },
@@ -79,37 +53,20 @@ const CGL_MAINS_SECTIONS: SectionConfig[] = [
   { part: 'E', subject: 'Computer Knowledge', start: 131, end: 150, marksPerCorrect: 3, negativePerWrong: 0.5, maxMarks: 60, qualifying: true },
 ];
 
-// RRB NTPC Graduate Level CBT-1
-const RRB_NTPC_SECTIONS: SectionConfig[] = [
-  { part: 'A', subject: 'Mathematics', start: 1, end: 30, marksPerCorrect: 1, negativePerWrong: 1 / 3, maxMarks: 30 },
-  { part: 'B', subject: 'General Intelligence & Reasoning', start: 31, end: 60, marksPerCorrect: 1, negativePerWrong: 1 / 3, maxMarks: 30 },
-  { part: 'C', subject: 'General Awareness', start: 61, end: 100, marksPerCorrect: 1, negativePerWrong: 1 / 3, maxMarks: 40 },
-];
-
-const EXAM_CONFIGS: Record<string, ExamConfig> = {
-  ssc_cgl: { name: 'SSC CGL Mains', sections: CGL_MAINS_SECTIONS },
-  rrb_ntpc: { name: 'RRB NTPC', sections: RRB_NTPC_SECTIONS },
-};
-
-function detectExamType(candidateInfo: CandidateInfo | null, html: string): ExamConfig {
-  const subject = candidateInfo?.subject?.toLowerCase() || '';
-  if (subject.includes('rrb') || subject.includes('ntpc') || html.includes('rrb.digialm.com')) {
-    return EXAM_CONFIGS.rrb_ntpc;
-  }
-  return EXAM_CONFIGS.ssc_cgl;
-}
-
 export function parseSSCHtml(html: string): ScorecardData {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
+
+  // Try to extract base URL from the HTML for resolving relative image paths
   const baseUrl = extractBaseUrl(html);
+
   const candidateInfo = extractCandidateInfo(doc);
-  const examConfig = detectExamType(candidateInfo, html);
   const questions = extractQuestions(doc, baseUrl);
-  return calculateScorecard(questions, baseUrl, candidateInfo, examConfig);
+  return calculateScorecard(questions, baseUrl, candidateInfo);
 }
 
 function extractCandidateInfo(doc: Document): CandidateInfo | null {
+  // Find the info table - it has rows with Roll Number, Candidate Name, etc.
   const tables = doc.querySelectorAll('table');
   for (const table of tables) {
     const rows = table.querySelectorAll('tr');
@@ -122,15 +79,13 @@ function extractCandidateInfo(doc: Document): CandidateInfo | null {
         if (key) info[key] = value;
       }
     }
-    if (info['Roll Number'] || info['Candidate Name'] || info['Registration Number']) {
+    if (info['Roll Number'] || info['Candidate Name']) {
       return {
-        registrationNumber: info['Registration Number'] || '',
         rollNumber: info['Roll Number'] || '',
         candidateName: info['Candidate Name'] || '',
-        community: info['Community'] || '',
-        venueName: info['Venue Name'] || info['Test Center Name'] || '',
-        examDate: info['Exam Date'] || info['Test Date'] || '',
-        examTime: info['Exam Time'] || info['Test Time'] || '',
+        venueName: info['Venue Name'] || '',
+        examDate: info['Exam Date'] || '',
+        examTime: info['Exam Time'] || '',
         subject: info['Subject'] || '',
       };
     }
@@ -139,22 +94,18 @@ function extractCandidateInfo(doc: Document): CandidateInfo | null {
 }
 
 function extractBaseUrl(html: string): string {
-  // SSC pattern
-  const sscMatch = html.match(/src="(\/per\/g\d+\/pub\/\d+\/touchstone\/)/);
-  if (sscMatch) return 'https://ssc.digialm.com' + sscMatch[1];
-  // RRB pattern
-  const rrbMatch = html.match(/src="(\/per\/g\d+\/pub\/\d+\/touchstone\/)/);
-  if (rrbMatch) return 'https://rrb.digialm.com' + rrbMatch[1];
-  if (html.includes('rrb.digialm.com')) return 'https://rrb.digialm.com';
+  // Try to find base URL from image src attributes
+  const match = html.match(/src="(\/per\/g\d+\/pub\/\d+\/touchstone\/)/);
+  if (match) {
+    return 'https://ssc.digialm.com' + match[1];
+  }
   return 'https://ssc.digialm.com';
 }
 
 function resolveImageUrl(src: string, baseUrl: string): string {
   if (!src) return '';
   if (src.startsWith('http')) return src;
-  // Determine domain from baseUrl
-  const domain = baseUrl.startsWith('https://rrb') ? 'https://rrb.digialm.com' : 'https://ssc.digialm.com';
-  if (src.startsWith('/')) return domain + src;
+  if (src.startsWith('/')) return 'https://ssc.digialm.com' + src;
   return baseUrl + src;
 }
 
@@ -166,11 +117,12 @@ function extractQuestions(doc: Document, baseUrl: string): QuestionResult[] {
   questionRows.forEach((row) => {
     const questionTbl = row.querySelector('table.questionRowTbl');
     const menuTbl = row.querySelector('table.menu-tbl');
+
     if (!questionTbl || !menuTbl) return;
 
     sequentialIndex++;
 
-    // Extract section-local question number
+    // Extract section-local question number (e.g. Q.3)
     let sectionQuestionNumber = 0;
     const qNumTd = questionTbl.querySelector('td.bold[valign="top"]');
     if (qNumTd) {
@@ -178,21 +130,16 @@ function extractQuestions(doc: Document, baseUrl: string): QuestionResult[] {
       if (match) sectionQuestionNumber = parseInt(match[1]);
     }
 
-    // Extract question image and text
+    // Extract question image - it's the img inside the question text td (second row, second td)
     let questionImageUrl: string | null = null;
-    let questionText: string | null = null;
     const allRows = questionTbl.querySelectorAll('tr');
+    // The question image is typically in the second tr, second td
     for (const tr of allRows) {
       const td = tr.querySelector('td.bold[style*="text-align: left"]');
       if (td) {
         const img = td.querySelector('img');
         if (img) {
           questionImageUrl = resolveImageUrl(img.getAttribute('src') || '', baseUrl);
-        }
-        // Get text content (excluding img alt text)
-        const textContent = td.textContent?.trim() || '';
-        if (textContent) {
-          questionText = textContent;
         }
         break;
       }
@@ -208,44 +155,40 @@ function extractQuestions(doc: Document, baseUrl: string): QuestionResult[] {
       if (tds.length >= 2) {
         const label = tds[0].textContent?.trim() || '';
         const value = tds[1].textContent?.trim() || '';
-        if (label.includes('Status')) status = value;
-        else if (label.includes('Chosen Option')) {
+
+        if (label.includes('Status')) {
+          status = value;
+        } else if (label.includes('Chosen Option')) {
           const num = parseInt(value);
           if (!isNaN(num) && num > 0) chosenOption = num;
         }
       }
     });
 
-    // Extract options
+    // Extract options with images and correctness
     let correctOption: number | null = null;
     const optionImages: QuestionResult['optionImages'] = [];
     const answerTds = questionTbl.querySelectorAll('td.rightAns, td.wrngAns');
-
+    
     answerTds.forEach((td) => {
-      const fullText = td.textContent?.trim() || '';
-      const numMatch = fullText.match(/^(\d+)\.\s*/);
+      const text = td.textContent?.trim() || '';
+      const numMatch = text.match(/^(\d+)\./);
       if (!numMatch) return;
 
       const optNum = parseInt(numMatch[1]);
       const isRight = td.classList.contains('rightAns');
       if (isRight) correctOption = optNum;
 
-      // Get option image (content image, not tick/cross)
-      const img = td.querySelector('img[name]');
+      // Get option image
+      const img = td.querySelector('img[name]'); // img with name= are content images, not tick/cross
       let imageUrl: string | null = null;
       if (img) {
         imageUrl = resolveImageUrl(img.getAttribute('src') || '', baseUrl);
       }
 
-      // Get option text (remove the number prefix and tick/cross icon text)
-      let optText: string | null = null;
-      const rawText = fullText.replace(/^\d+\.\s*/, '').trim();
-      if (rawText) optText = rawText;
-
       optionImages.push({
         optionNumber: optNum,
         imageUrl,
-        text: optText,
         isCorrect: isRight,
         isChosen: chosenOption === optNum,
       });
@@ -260,7 +203,6 @@ function extractQuestions(doc: Document, baseUrl: string): QuestionResult[] {
       chosenOption,
       isCorrect,
       correctOption,
-      questionText,
       questionImageUrl,
       optionImages,
     });
@@ -269,16 +211,11 @@ function extractQuestions(doc: Document, baseUrl: string): QuestionResult[] {
   return questions;
 }
 
-function calculateScorecard(
-  questions: QuestionResult[],
-  baseUrl: string,
-  candidateInfo: CandidateInfo | null,
-  examConfig: ExamConfig
-): ScorecardData {
+function calculateScorecard(questions: QuestionResult[], baseUrl: string, candidateInfo: CandidateInfo | null): ScorecardData {
   const sections: SectionResult[] = [];
   let qualifyingSection: SectionResult | null = null;
 
-  for (const section of examConfig.sections) {
+  for (const section of CGL_MAINS_SECTIONS) {
     const sectionQuestions = questions.filter(
       (q) => q.questionNumber >= section.start && q.questionNumber <= section.end
     );
@@ -301,10 +238,10 @@ function calculateScorecard(
       marksPerCorrect: section.marksPerCorrect,
       negativePerWrong: section.negativePerWrong,
       maxMarks: section.maxMarks,
-      score: Math.round(score * 100) / 100,
+      score: Math.round(score * 10) / 10,
     };
 
-    if (section.qualifying) {
+    if ((section as any).qualifying) {
       qualifyingSection = result;
     } else {
       sections.push(result);
@@ -314,7 +251,7 @@ function calculateScorecard(
   const totalCorrect = sections.reduce((s, sec) => s + sec.correct, 0);
   const totalWrong = sections.reduce((s, sec) => s + sec.wrong, 0);
   const totalSkipped = sections.reduce((s, sec) => s + sec.skipped, 0);
-  const totalScore = Math.round(sections.reduce((s, sec) => s + sec.score, 0) * 100) / 100;
+  const totalScore = Math.round(sections.reduce((s, sec) => s + sec.score, 0) * 10) / 10;
   const totalMaxMarks = sections.reduce((s, sec) => s + sec.maxMarks, 0);
 
   return {
@@ -328,19 +265,15 @@ function calculateScorecard(
     totalMaxMarks,
     qualifyingSection,
     baseUrl,
-    examConfig,
   };
 }
 
 export function getQuestionsForSection(data: ScorecardData, part: string): QuestionResult[] {
-  const sections = data?.examConfig?.sections ?? [];
-  const section = sections.find((s) => s.part === part);
+  const section = CGL_MAINS_SECTIONS.find((s) => s.part === part);
   if (!section) return [];
   return data.questions.filter(
     (q) => q.questionNumber >= section.start && q.questionNumber <= section.end
   );
 }
 
-export function getExamSections(data: ScorecardData) {
-  return data?.examConfig?.sections ?? [];
-}
+export { CGL_MAINS_SECTIONS };
