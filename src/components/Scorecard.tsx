@@ -25,12 +25,30 @@ const Scorecard = ({ data }: ScorecardProps) => {
                 </div>
               </div>
             )}
+            {data.candidateInfo.registrationNumber && (
+              <div className="flex items-start gap-2">
+                <BookOpen className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Registration No.</p>
+                  <p className="font-semibold text-foreground">{data.candidateInfo.registrationNumber}</p>
+                </div>
+              </div>
+            )}
             {data.candidateInfo.rollNumber && (
               <div className="flex items-start gap-2">
                 <BookOpen className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs text-muted-foreground">Roll Number</p>
                   <p className="font-semibold text-foreground">{data.candidateInfo.rollNumber}</p>
+                </div>
+              </div>
+            )}
+            {data.candidateInfo.community && (
+              <div className="flex items-start gap-2">
+                <User className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Community</p>
+                  <p className="font-semibold text-foreground">{data.candidateInfo.community}</p>
                 </div>
               </div>
             )}

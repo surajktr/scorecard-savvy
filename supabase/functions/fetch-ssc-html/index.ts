@@ -18,10 +18,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate it's an SSC digialm URL
+    // Validate it's a digialm URL (SSC or RRB)
     if (!url.includes('digialm.com')) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Only SSC digialm URLs are supported' }),
+        JSON.stringify({ success: false, error: 'Only SSC/RRB digialm URLs are supported' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
